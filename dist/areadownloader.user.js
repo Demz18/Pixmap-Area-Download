@@ -1,10 +1,11 @@
 // ==UserScript==
 // @name         Pixmap Area Downloader
 // @namespace    http://tampermonkey.net/
-// @version      1.0
+// @version      1.1
 // @description  Download an area from Pixmap.fun
-// @author       demz
+// @author       PixelArg
 // @match        *://pixmap.fun/*
+// @grant        GM_addStyle
 // @grant        GM_download
 // ==/UserScript==
 
@@ -14,171 +15,220 @@
     const PPFUN_URL = "https://pixmap.fun";
     const CANVASES_URL = "https://raw.githubusercontent.com/CodeToucher/motherfuckingcanvasjsonfuckupixmapformakingmedothisinsteadofu/refs/heads/main/canvases.json";
 
-    // ---- Create main UI container ----
-    const ui = document.createElement("div");
-    ui.style.position = "fixed";
-    ui.style.top = "30px";
-    ui.style.left = "200px";
-    ui.style.width = "380px";
-    ui.style.zIndex = "99999";
-    ui.style.background = "linear-gradient(135deg, #1abc9c, #16a085)";
-    ui.style.borderRadius = "10px";
-    ui.style.color = "#fff";
-    ui.style.fontSize = "15px";
-    ui.style.boxShadow = "0 6px 20px rgba(0,0,0,0.45)";
-    ui.style.userSelect = "none";
-    ui.style.minWidth = "280px";
-    ui.style.maxWidth = "70%";
+    // ---------- STYLES ----------
+    GM_addStyle(`
+    #areaCompact, #areaExpanded {
+        position: fixed;
+        z-index: 999999;
+        cursor: grab;
+        user-select: none;
+        font-family:'Poppins',sans-serif;
+    }
+    #areaCompact {
+        width: 260px;
+        height: 50px;
+        background:#0a4ab7;
+        border-radius: 25px;
+        box-shadow:0 4px 6px rgba(0,0,0,.3);
+        display:flex;
+        align-items:center;
+        justify-content:space-between;
+        padding:0 16px;
+        font-weight:bold;
+        font-style:italic;
+        color:#fff;
+        font-size:18px;
+    }
+    #expandArrow{
+        font-size:20px;
+        font-weight:bold;
+        transition:transform 0.3s ease;
+    }
 
-    ui.innerHTML = `
-        <div id="dragHeader" style="cursor:move; background:rgba(0,0,0,0.22); padding:10px; border-radius:10px 10px 0 0; display:flex; justify-content:space-between; align-items:center; font-weight:700;">
-            <span style="font-size:16px;">📥 Area Downloader</span>
-            <span id="collapseBtn" style="cursor:pointer; font-size:18px; padding:4px 8px; border-radius:6px;">➖</span>
+    #areaExpanded {
+        width: 360px;
+        background: linear-gradient(180deg,#1c56d0 0%,#0a4ab7 100%);
+        border-radius: 24px;
+        padding:10px;
+        box-shadow:0 6px 12px rgba(0,0,0,.3);
+        display:none;
+        flex-direction:column;
+        align-items:center;
+        color:white;
+    }
+    #areaExpanded h2 {
+        width:100%;
+        background:linear-gradient(90deg,#1c56d0 0%,#0a4ab7 100%);
+        border-radius:18px;
+        text-align:center;
+        padding:8px;
+        font-weight:bold;
+        font-style:italic;
+        margin:0 0 10px;
+        position:relative;
+    }
+    #collapseArrow {
+        position:absolute;
+        right:12px;
+        top:50%;
+        transform:translateY(-50%);
+        cursor:pointer;
+        font-size:18px;
+        font-weight:bold;
+    }
+    .coordInput {
+        width:90%;
+        margin:6px 0;
+        padding:8px;
+        border-radius:10px;
+        border:none;
+        background:#233b90;
+        color:#fff;
+        font-size:14px;
+        text-align:center;
+    }
+    .mainBtn {
+        margin:12px 0;
+        padding:10px 18px;
+        border-radius:18px;
+        background:#003fbd;
+        font-weight:bold;
+        cursor:pointer;
+        transition:background 0.2s;
+        color:#fff;
+        width:90%;
+        text-align:center;
+    }
+    .mainBtn:hover { background:#004fff; }
+    .progressContainer {
+        width:90%;
+        padding:10px;
+        border-radius:14px;
+        background:#233b90;
+        margin:10px 0;
+        text-align:center;
+        font-size:14px;
+    }
+    .progressBar {
+        width:100%;
+        height:16px;
+        background:#fff;
+        border-radius:8px;
+        overflow:hidden;
+        position:relative;
+    }
+    .progressFill {
+        width:0%;
+        height:100%;
+        background:#00aaff;
+        transition:width 0.3s;
+    }
+    .previewBox {
+        width:90%;
+        height:160px;
+        border:2px solid #fff;
+        border-radius:12px;
+        background:#1b3c90;
+        margin:10px 0;
+        display:flex;
+        justify-content:center;
+        align-items:center;
+        overflow:hidden;
+    }
+    .footerLabel {
+        margin-top:10px;
+        font-size:14px;
+        color:#d0d0d0;
+    }
+    `);
+
+    // ---------- ELEMENTS ----------
+    const compact = document.createElement('div');
+    compact.id = 'areaCompact';
+    compact.innerHTML = `<span>Area Downloader</span><div id="expandArrow">▼</div>`;
+
+    const expanded = document.createElement('div');
+    expanded.id = 'areaExpanded';
+    expanded.innerHTML = `
+        <h2>Area Downloader <span id="collapseArrow">▲</span></h2>
+        <input class="coordInput" id="coordStart" placeholder="Start Coord (X_Y) (Press 'R')" />
+        <input class="coordInput" id="coordEnd" placeholder="End Coord (X_Y) (Press 'R')" />
+        <div class="mainBtn" id="downloadBtn">Download Area</div>
+        <div class="progressContainer">
+            <div id="status">Download Progress 0%</div>
+            <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
         </div>
-        <div id="menuContent" style="padding:14px;">
-            <label style="font-weight:600;">Start Coord (X_Y):</label><br>
-            <input type="text" id="coordStart" placeholder="-100_200" style="width:100%; margin:8px 0; padding:9px; font-size:14px; border-radius:6px; border:none;"><br>
-            <label style="font-weight:600;">End Coord (X_Y):</label><br>
-            <input type="text" id="coordEnd" placeholder="-50_250" style="width:100%; margin:8px 0; padding:9px; font-size:14px; border-radius:6px; border:none;"><br>
-            <button id="downloadBtn" style="width:100%; padding:12px; background:#236fa1; border:none; border-radius:8px; color:#fff; font-weight:800; cursor:pointer; font-size:15px;">
-                Generate Image
-            </button>
-            <div id="status" style="margin-top:8px; font-size:13px; min-height:18px;"></div>
-            <hr style="border:none; border-top:1px solid rgba(255,255,255,0.15); margin:12px 0;">
-            <div id="previewContainer" style="text-align:center;">
-                <p style="margin:8px 0 6px; font-weight:700;">Preview:</p>
-                <div style="max-height:240px; overflow:auto; border-radius:6px; border:1px solid rgba(255,255,255,0.15); background:#222;">
-                    <canvas id="previewCanvas" style="display:block; max-width:100%;"></canvas>
-                </div>
-                <button id="saveBtn" style="margin-top:10px; display:none; width:100%; padding:10px; background:#27ae60; border:none; border-radius:8px; color:#fff; font-weight:700; cursor:pointer; font-size:15px;">
-                    Download PNG
-                </button>
-            </div>
-        </div>
+        <div class="previewBox"><canvas id="previewCanvas"></canvas></div>
+        <div class="mainBtn" id="saveBtn" style="display:none;">Save As PNG</div>
+        <div class="footerLabel">Made By PixelArg</div>
     `;
-    document.body.appendChild(ui);
 
-    // ---- Collapsed icon ----
-    const collapsedIcon = document.createElement("div");
-    collapsedIcon.textContent = "📥";
-    collapsedIcon.style.position = "fixed";
-    collapsedIcon.style.top = ui.style.top;
-    collapsedIcon.style.left = ui.style.left;
-    collapsedIcon.style.width = "56px";
-    collapsedIcon.style.height = "56px";
-    collapsedIcon.style.background = "#1abc9c";
-    collapsedIcon.style.borderRadius = "50%";
-    collapsedIcon.style.color = "#fff";
-    collapsedIcon.style.fontSize = "26px";
-    collapsedIcon.style.display = "flex";
-    collapsedIcon.style.alignItems = "center";
-    collapsedIcon.style.justifyContent = "center";
-    collapsedIcon.style.cursor = "pointer";
-    collapsedIcon.style.boxShadow = "0 6px 20px rgba(0,0,0,0.45)";
-    collapsedIcon.style.zIndex = "99999";
-    collapsedIcon.style.display = "none";
-    collapsedIcon.title = "Open Area Downloader";
-    document.body.appendChild(collapsedIcon);
+    document.body.appendChild(compact);
+    document.body.appendChild(expanded);
 
-    const collapseBtn = ui.querySelector("#collapseBtn");
-    const downloadBtn = ui.querySelector("#downloadBtn");
-    const saveBtn = ui.querySelector("#saveBtn");
-    const previewCanvas = ui.querySelector("#previewCanvas");
-    const statusEl = ui.querySelector("#status");
+    // Position memory
+    let pos = JSON.parse(localStorage.getItem('areaDownloaderPos')||'{"x":50,"y":50}');
+    compact.style.top = pos.y+'px';
+    compact.style.left = pos.x+'px';
 
-    // ---- Collapse / Expand functions ----
-    function collapseMenu() {
-        collapsedIcon.style.top = ui.style.top;
-        collapsedIcon.style.left = ui.style.left;
-        ui.style.display = "none";
-        collapsedIcon.style.display = "flex";
-    }
-
-    function expandMenu() {
-        ui.style.top = collapsedIcon.style.top;
-        ui.style.left = collapsedIcon.style.left;
-        ui.style.display = "block";
-        collapsedIcon.style.display = "none";
-    }
-
-    collapseBtn.addEventListener("click", () => {
-        collapseMenu();
-    });
-
-    // --- Click vs Drag handling on collapsed icon ---
-    let dragMoved = false;
-    collapsedIcon.addEventListener("mousedown", () => {
-        dragMoved = false;
-    });
-    collapsedIcon.addEventListener("mousemove", () => {
-        dragMoved = true;
-    });
-    collapsedIcon.addEventListener("mouseup", () => {
-        if (!dragMoved) {
-            expandMenu();
+    // Drag function
+    function makeDraggable(el) {
+        let offsetX, offsetY, dragging=false;
+        function down(e){
+            dragging=true;
+            const evt = e.touches?e.touches[0]:e;
+            offsetX = evt.clientX - el.offsetLeft;
+            offsetY = evt.clientY - el.offsetTop;
+            document.addEventListener('mousemove',move);
+            document.addEventListener('mouseup',up);
+            document.addEventListener('touchmove',move,{passive:false});
+            document.addEventListener('touchend',up);
         }
-    });
-
-    // ---- Draggable helper ----
-    function makeDraggable(targetEl, handleEl, onMoveCallback) {
-        handleEl.style.touchAction = "none";
-        function getIntPx(v) { return parseInt(String(v || '0').replace('px',''), 10) || 0; }
-
-        handleEl.addEventListener('mousedown', startDrag);
-        handleEl.addEventListener('touchstart', startDrag, { passive: false });
-
-        function startDrag(e) {
+        function move(e){
+            if(!dragging) return;
+            const evt = e.touches?e.touches[0]:e;
+            let x = evt.clientX - offsetX;
+            let y = evt.clientY - offsetY;
+            el.style.left = x+'px';
+            el.style.top = y+'px';
             e.preventDefault();
-            const startX = e.touches ? e.touches[0].clientX : e.clientX;
-            const startY = e.touches ? e.touches[0].clientY : e.clientY;
-            if (!targetEl.style.top) targetEl.style.top = "80px";
-            if (!targetEl.style.left) targetEl.style.left = "50px";
-            const origTop = getIntPx(targetEl.style.top);
-            const origLeft = getIntPx(targetEl.style.left);
-
-            function onMove(ev) {
-                ev.preventDefault();
-                const clientX = ev.touches ? ev.touches[0].clientX : ev.clientX;
-                const clientY = ev.touches ? ev.touches[0].clientY : ev.clientY;
-                const dx = clientX - startX;
-                const dy = clientY - startY;
-                const newTop = origTop + dy;
-                const newLeft = origLeft + dx;
-                targetEl.style.top = newTop + 'px';
-                targetEl.style.left = newLeft + 'px';
-                if (typeof onMoveCallback === 'function') onMoveCallback(newTop, newLeft);
-            }
-
-            function endDrag() {
-                document.removeEventListener('mousemove', onMove);
-                document.removeEventListener('mouseup', endDrag);
-                document.removeEventListener('touchmove', onMove);
-                document.removeEventListener('touchend', endDrag);
-            }
-
-            document.addEventListener('mousemove', onMove);
-            document.addEventListener('mouseup', endDrag);
-            document.addEventListener('touchmove', onMove, { passive: false });
-            document.addEventListener('touchend', endDrag);
         }
+        function up(){
+            dragging=false;
+            localStorage.setItem('areaDownloaderPos',JSON.stringify({x:el.offsetLeft,y:el.offsetTop}));
+            document.removeEventListener('mousemove',move);
+            document.removeEventListener('mouseup',up);
+            document.removeEventListener('touchmove',move);
+            document.removeEventListener('touchend',up);
+        }
+        el.addEventListener('mousedown',down);
+        el.addEventListener('touchstart',down);
     }
 
-    // Draggable menu
-    const header = ui.querySelector("#dragHeader");
-    makeDraggable(ui, header, (top, left) => {
-        if (collapsedIcon.style.display !== 'none') {
-            collapsedIcon.style.top = top + 'px';
-            collapsedIcon.style.left = left + 'px';
-        }
+    makeDraggable(compact);
+    makeDraggable(expanded);
+
+    // Toggle expand/collapse
+    document.getElementById('expandArrow').addEventListener('click',()=>{
+        expanded.style.left = compact.offsetLeft+'px';
+        expanded.style.top = compact.offsetTop+'px';
+        expanded.style.display='flex';
+        compact.style.display='none';
+    });
+    document.getElementById('collapseArrow').addEventListener('click',()=>{
+        compact.style.left = expanded.offsetLeft+'px';
+        compact.style.top = expanded.offsetTop+'px';
+        compact.style.display='flex';
+        expanded.style.display='none';
     });
 
-    // Draggable collapsed icon
-    makeDraggable(collapsedIcon, collapsedIcon, (top, left) => {
-        ui.style.top = top + 'px';
-        ui.style.left = left + 'px';
-    });
+    // ---------- LOGIC ----------
+    const downloadBtn = expanded.querySelector("#downloadBtn");
+    const saveBtn = expanded.querySelector("#saveBtn");
+    const previewCanvas = expanded.querySelector("#previewCanvas");
+    const statusEl = expanded.querySelector("#status");
+    const progressFill = expanded.querySelector("#progressFill");
 
-    // ---- Parse coordinates ----
     function parseCoords(start, end) {
         if (!start || !end) return { ok: false, msg: "Both coordinates required" };
         const a = start.split("_").map(s => Number(s.trim()));
@@ -190,11 +240,9 @@
         return { ok: true, x1, y1, x2, y2, w: x2 - x1 + 1, h: y2 - y1 + 1 };
     }
 
-    // ---- Download and build area ----
     async function downloadArea(start, end) {
         statusEl.textContent = "Fetching canvas data...";
-        downloadBtn.disabled = true;
-        downloadBtn.textContent = "Generating...";
+        downloadBtn.style.pointerEvents = "none";
         try {
             const canvasesResp = await fetch(CANVASES_URL);
             const canvases = await canvasesResp.json();
@@ -202,10 +250,7 @@
             const canvas = canvases[canvasId];
 
             const parse = parseCoords(start, end);
-            if (!parse.ok) {
-                statusEl.textContent = parse.msg;
-                return;
-            }
+            if (!parse.ok) { statusEl.textContent = parse.msg; return; }
             const { x1, y1, x2, y2, w: width, h: height } = parse;
 
             statusEl.textContent = `Loading area ${width}×${height}...`;
@@ -237,6 +282,7 @@
                         if (buf.byteLength !== 65536) {
                             loadedTiles++;
                             statusEl.textContent = `Tile ${loadedTiles}/${totalTiles} (invalid)`;
+                            progressFill.style.width = (loadedTiles/totalTiles*100)+"%";
                             continue;
                         }
                         const arr = new Uint8Array(buf);
@@ -257,16 +303,18 @@
                         }
                         loadedTiles++;
                         statusEl.textContent = `Loaded ${loadedTiles}/${totalTiles} tiles`;
-                    } catch (err) {
+                        progressFill.style.width = (loadedTiles/totalTiles*100)+"%";
+                    } catch {
                         loadedTiles++;
                         statusEl.textContent = `Tile ${loadedTiles}/${totalTiles} (error)`;
+                        progressFill.style.width = (loadedTiles/totalTiles*100)+"%";
                     }
                 }
             }
 
             ctx.putImageData(imgData, 0, 0);
 
-            // show preview
+            // preview
             const pctx = previewCanvas.getContext("2d");
             previewCanvas.width = Math.min(width, 600);
             previewCanvas.height = Math.min(height, 300);
@@ -293,20 +341,15 @@
         } catch (err) {
             statusEl.textContent = "Error: " + (err.message || err);
         } finally {
-            downloadBtn.disabled = false;
-            downloadBtn.textContent = "Generate Image";
+            downloadBtn.style.pointerEvents = "auto";
         }
     }
 
-    // ---- Button handler ----
     downloadBtn.addEventListener("click", () => {
         const start = document.getElementById("coordStart").value.trim();
         const end = document.getElementById("coordEnd").value.trim();
         const parsed = parseCoords(start, end);
-        if (!parsed.ok) {
-            statusEl.textContent = parsed.msg;
-            return;
-        }
+        if (!parsed.ok) { statusEl.textContent = parsed.msg; return; }
         downloadArea(start, end);
     });
 
