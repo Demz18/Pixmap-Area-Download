@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pixmap Area Downloader
 // @namespace    http://tampermonkey.net/
-// @version      1.2
+// @version      1.3
 // @description  Download an area from Pixmap.fun
 // @author       PixelArg
 // @match        *://pixmap.fun/*
@@ -27,26 +27,38 @@
         user-select: none;
         font-family:'Poppins',sans-serif;
     }
-    #areaCompact {
-        width: 260px;
-        height: 50px;
-        background:#0a4ab7;
-        border-radius: 25px;
-        box-shadow:0 4px 6px rgba(0,0,0,.3);
-        display:flex;
-        align-items:center;
-        justify-content:space-between;
-        padding:0 16px;
-        font-weight:bold;
-        font-style:italic;
-        color:#fff;
-        font-size:18px;
-    }
-    #expandArrow{
-        font-size:20px;
-        font-weight:bold;
-        transition:transform 0.3s ease;
-    }
+	
+	#areaCompact {
+		min-width: 200px;
+		height: 44px;
+		background: linear-gradient(135deg, #3a8dff, #0052d4);
+		border-radius: 12px;
+		box-shadow: 0 4px 12px rgba(0,0,0,.25);
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		padding: 0 14px;
+		font-weight: 600;
+		font-style: normal;
+		color: #fff;
+		font-size: 15px;
+		letter-spacing: 0.3px;
+		transition: background 0.25s, transform 0.15s;
+	}
+
+	#areaCompact:hover {
+		background: linear-gradient(135deg, #4da1ff, #0060f5);
+		transform: translateY(-1px);
+	}
+
+	#expandArrow {
+		font-size: 18px;
+		font-weight: bold;
+		transition: transform 0.3s ease;
+		margin-left: 10px;
+		opacity: 0.9;
+	}
+
 
     #areaExpanded {
         width: 360px;
