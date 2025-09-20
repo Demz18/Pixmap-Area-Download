@@ -58,7 +58,7 @@
     `;
     document.body.appendChild(ui);
 
-    // ---- Collapsed icon (initially hidden) ----
+    // ---- Collapsed icon ----
     const collapsedIcon = document.createElement("div");
     collapsedIcon.textContent = "📥";
     collapsedIcon.style.position = "fixed";
@@ -190,7 +190,7 @@
         return { ok: true, x1, y1, x2, y2, w: x2 - x1 + 1, h: y2 - y1 + 1 };
     }
 
-    // ---- Download & build area ----
+    // ---- Download and build area ----
     async function downloadArea(start, end) {
         statusEl.textContent = "Fetching canvas data...";
         downloadBtn.disabled = true;
