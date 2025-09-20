@@ -1,12 +1,15 @@
 // ==UserScript==
 // @name         Pixmap Area Downloader
 // @namespace    http://tampermonkey.net/
-// @version      1.1
+// @version      1.2
 // @description  Download an area from Pixmap.fun
 // @author       PixelArg
 // @match        *://pixmap.fun/*
 // @grant        GM_addStyle
 // @grant        GM_download
+// @updateURL    https://raw.githubusercontent.com/Demz18/Pixmap-Area-Download/main/dist/main.user.js
+// @downloadURL  https://raw.githubusercontent.com/Demz18/Pixmap-Area-Download/main/dist/main.user.js
+
 // ==/UserScript==
 
 (function() {
