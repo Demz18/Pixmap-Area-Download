@@ -1,9 +1,9 @@
 // ==UserScript==
 // @name         Pixmap Area Downloader
 // @namespace    http://tampermonkey.net/
-// @version      1.3.1
+// @version      1.4
 // @description  Download an area from Pixmap.fun
-// @author       PixelArg
+// @author       Demz and Bauti
 // @match        *://pixmap.fun/*
 // @grant        GM_addStyle
 // @grant        GM_download
@@ -14,359 +14,372 @@
 // ==/UserScript==
 
 (function() {
-    'use strict';
+  'use strict';
 
-    const PPFUN_URL = "https://pixmap.fun";
-    const CANVASES_URL = "https://raw.githubusercontent.com/CodeToucher/motherfuckingcanvasjsonfuckupixmapformakingmedothisinsteadofu/refs/heads/main/canvases.json";
+  const PPFUN_URL = "https://pixmap.fun";
+  const CANVASES_URL = "https://raw.githubusercontent.com/CodeToucher/motherfuckingcanvasjsonfuckupixmapformakingmedothisinsteadofu/refs/heads/main/canvases.json";
 
-    // ---------- STYLES ----------
-    GM_addStyle(`
-    #areaCompact, #areaExpanded {
-        position: fixed;
-        z-index: 999999;
-        cursor: grab;
-        user-select: none;
-        font-family:'Poppins',sans-serif;
+  // ---- Style helper ----
+  function addStyles(css) {
+    try {
+      if (typeof GM_addStyle === 'function') return GM_addStyle(css);
+    } catch (e) {}
+    const s = document.createElement('style');
+    s.textContent = css;
+    document.head.appendChild(s);
+  }
+
+  // ---- Styles ----
+  addStyles(`
+    #areaDownloader {
+      position: fixed;
+      top: 40px;
+      left: 260px;
+      width: 320px;
+      background: linear-gradient(135deg, #3a8dff, #0052d4);
+      border-radius: 14px;
+      box-shadow: 0 6px 20px rgba(0,0,0,.35);
+      color: #fff;
+      font-family: 'Segoe UI', Arial, sans-serif;
+      font-size: 14px;
+      z-index: 99999;
     }
-	
-	#areaCompact {
-		min-width: 200px;
-		height: 44px;
-		background: linear-gradient(135deg, #3a8dff, #0052d4);
-		border-radius: 12px;
-		box-shadow: 0 4px 12px rgba(0,0,0,.25);
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding: 0 14px;
-		font-weight: 600;
-		font-style: normal;
-		color: #fff;
-		font-size: 15px;
-		letter-spacing: 0.3px;
-		transition: background 0.25s, transform 0.15s;
-	}
-
-	#areaCompact:hover {
-		background: linear-gradient(135deg, #4da1ff, #0060f5);
-		transform: translateY(-1px);
-	}
-
-	#expandArrow {
-		font-size: 18px;
-		font-weight: bold;
-		transition: transform 0.3s ease;
-		margin-left: 10px;
-		opacity: 0.9;
-	}
-
-
-    #areaExpanded {
-        width: 360px;
-        background: linear-gradient(180deg,#1c56d0 0%,#0a4ab7 100%);
-        border-radius: 24px;
-        padding:10px;
-        box-shadow:0 6px 12px rgba(0,0,0,.3);
-        display:none;
-        flex-direction:column;
-        align-items:center;
-        color:white;
+    #dragHeader {
+      cursor: move;
+      background: rgba(0,0,0,0.2);
+      padding: 10px;
+      border-radius: 14px 14px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-weight: 700;
     }
-    #areaExpanded h2 {
-        width:100%;
-        background:linear-gradient(90deg,#1c56d0 0%,#0a4ab7 100%);
-        border-radius:18px;
-        text-align:center;
-        padding:8px;
-        font-weight:bold;
-        font-style:italic;
-        margin:0 0 10px;
-        position:relative;
+    #collapseBtn {
+      cursor: pointer;
+      font-size: 18px;
+      padding: 2px 6px;
+      border-radius: 6px;
     }
-    #collapseArrow {
-        position:absolute;
-        right:12px;
-        top:50%;
-        transform:translateY(-50%);
-        cursor:pointer;
-        font-size:18px;
-        font-weight:bold;
-    }
-    .coordInput {
-        width:90%;
-        margin:6px 0;
-        padding:8px;
-        border-radius:10px;
-        border:none;
-        background:#233b90;
-        color:#fff;
-        font-size:14px;
-        text-align:center;
+    #menuContent { padding: 14px; }
+    .mainInput, .selectCanvas {
+      width: 100%;
+      margin: 6px 0;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      font-size: 14px;
+      background: #233b90;
+      color: #fff;
+      box-sizing: border-box;
     }
     .mainBtn {
-        margin:12px 0;
-        padding:10px 18px;
-        border-radius:18px;
-        background:#003fbd;
-        font-weight:bold;
-        cursor:pointer;
-        transition:background 0.2s;
-        color:#fff;
-        width:90%;
-        text-align:center;
+      width: 100%;
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      background: #0044cc;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 15px;
     }
-    .mainBtn:hover { background:#004fff; }
-    .progressContainer {
-        width:90%;
-        padding:10px;
-        border-radius:14px;
-        background:#233b90;
-        margin:10px 0;
-        text-align:center;
-        font-size:14px;
+    .mainBtn:hover { background: #0056ff; }
+    #progress {
+      width: 100%;
+      margin-top: 12px;
+      height: 18px;
+      background: #ddd;
+      border-radius: 10px;
+      overflow: hidden;
     }
-    .progressBar {
-        width:100%;
-        height:16px;
-        background:#fff;
-        border-radius:8px;
-        overflow:hidden;
-        position:relative;
+    #progressBar {
+      width: 0%;
+      height: 100%;
+      background: #27ae60;
+      text-align: center;
+      color: #fff;
+      font-size: 12px;
+      line-height: 18px;
+      transition: width 0.2s;
     }
-    .progressFill {
-        width:0%;
-        height:100%;
-        background:#00aaff;
-        transition:width 0.3s;
+    #status { text-align: center; margin-top: 8px; font-size: 13px; min-height: 18px; }
+    #previewContainer { text-align: center; margin-top: 12px; }
+    #previewCanvas {
+      display: block;
+      max-width: 100%;
+      border: 1px solid rgba(255,255,255,0.2);
+      border-radius: 6px;
+      background: #111;
+      margin: auto;
     }
-    .previewBox {
-        width:90%;
-        height:160px;
-        border:2px solid #fff;
-        border-radius:12px;
-        background:#1b3c90;
-        margin:10px 0;
-        display:flex;
-        justify-content:center;
-        align-items:center;
-        overflow:hidden;
+    #saveBtn {
+      margin-top: 8px;
+      width: 100%;
+      padding: 10px;
+      border-radius: 8px;
+      border: none;
+      background: #27ae60;
+      color: #fff;
+      font-weight: bold;
+      cursor: pointer;
+      font-size: 15px;
+      display: none;
     }
     .footerLabel {
         margin-top:10px;
         font-size:14px;
         color:#d0d0d0;
     }
-    `);
+  `);
 
-    // ---------- ELEMENTS ----------
-    const compact = document.createElement('div');
-    compact.id = 'areaCompact';
-    compact.innerHTML = `<span>Area Downloader</span><div id="expandArrow">▼</div>`;
+  // ---- UI ----
+  const ui = document.createElement("div");
+  ui.id = "areaDownloader";
+  ui.innerHTML = `
+    <div id="dragHeader">
+      <span>📥 Area Downloader</span>
+      <span id="collapseBtn">➖</span>
+    </div>
+    <div id="menuContent">
+      <input type="text" id="coordStart" class="mainInput" placeholder="Start Coord (X_Y) e.g. -11601_6079">
+      <input type="text" id="coordEnd" class="mainInput" placeholder="End Coord (X_Y) e.g. -10792_8622">
+      <select class="selectCanvas" id="canvasSelect">
+          <option value="0">🌍 Earth</option>
+          <option value="1">🌙 Moon</option>
+          <option value="17">🗺️ MiniMap</option>
+      </select>
+      <button id="downloadBtn" class="mainBtn">Download Area</button>
+      <div id="progress"><div id="progressBar">0%</div></div>
+      <div id="status"></div>
+      <div id="previewContainer">
+        <canvas id="previewCanvas"></canvas>
+        <button id="saveBtn">Download PNG</button>
+      </div>
+	  <div class="footerLabel">Made By demz and bauti</div>
+    </div>
+  `;
+  document.body.appendChild(ui);
 
-    const expanded = document.createElement('div');
-    expanded.id = 'areaExpanded';
-    expanded.innerHTML = `
-        <h2>Area Downloader <span id="collapseArrow">▲</span></h2>
-        <input class="coordInput" id="coordStart" placeholder="Start Coord (X_Y) (Press 'R')" />
-        <input class="coordInput" id="coordEnd" placeholder="End Coord (X_Y) (Press 'R')" />
-        <div class="mainBtn" id="downloadBtn">Download Area</div>
-        <div class="progressContainer">
-            <div id="status">Download Progress 0%</div>
-            <div class="progressBar"><div class="progressFill" id="progressFill"></div></div>
-        </div>
-        <div class="previewBox"><canvas id="previewCanvas"></canvas></div>
-        <div class="mainBtn" id="saveBtn" style="display:none;">Save As PNG</div>
-        <div class="footerLabel">Made By PixelArg</div>
-    `;
+  // ---- Refs ----
+  const header = ui.querySelector("#dragHeader");
+  const collapseBtn = ui.querySelector("#collapseBtn");
+  const menuContent = ui.querySelector("#menuContent");
+  const inputStart = ui.querySelector("#coordStart");
+  const inputEnd = ui.querySelector("#coordEnd");
+  const canvasSelect = ui.querySelector("#canvasSelect");
+  const downloadBtn = ui.querySelector("#downloadBtn");
+  const saveBtn = ui.querySelector("#saveBtn");
+  const previewCanvas = ui.querySelector("#previewCanvas");
+  const progressBar = ui.querySelector("#progressBar");
+  const statusEl = ui.querySelector("#status");
 
-    document.body.appendChild(compact);
-    document.body.appendChild(expanded);
+  // ---- Collapse ----
+  collapseBtn.addEventListener("click", () => {
+    if (menuContent.style.display === "none") {
+      menuContent.style.display = "block";
+      collapseBtn.textContent = "➖";
+    } else {
+      menuContent.style.display = "none";
+      collapseBtn.textContent = "➕";
+    }
+  });
 
-    // Position memory
-    let pos = JSON.parse(localStorage.getItem('areaDownloaderPos')||'{"x":50,"y":50}');
-    compact.style.top = pos.y+'px';
-    compact.style.left = pos.x+'px';
+  // ---- Draggable ----
+  (function makeDraggable(target, handle) {
+    let offsetX = 0, offsetY = 0, dragging = false;
+    handle.addEventListener("mousedown", (e) => {
+      dragging = true;
+      offsetX = e.clientX - target.offsetLeft;
+      offsetY = e.clientY - target.offsetTop;
+      document.addEventListener("mousemove", move);
+      document.addEventListener("mouseup", stop);
+    });
+    function move(e) {
+      if (!dragging) return;
+      target.style.left = (e.clientX - offsetX) + "px";
+      target.style.top = (e.clientY - offsetY) + "px";
+    }
+    function stop() {
+      dragging = false;
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", stop);
+    }
+  })(ui, header);
 
-    // Drag function
-    function makeDraggable(el) {
-        let offsetX, offsetY, dragging=false;
-        function down(e){
-            dragging=true;
-            const evt = e.touches?e.touches[0]:e;
-            offsetX = evt.clientX - el.offsetLeft;
-            offsetY = evt.clientY - el.offsetTop;
-            document.addEventListener('mousemove',move);
-            document.addEventListener('mouseup',up);
-            document.addEventListener('touchmove',move,{passive:false});
-            document.addEventListener('touchend',up);
-        }
-        function move(e){
-            if(!dragging) return;
-            const evt = e.touches?e.touches[0]:e;
-            let x = evt.clientX - offsetX;
-            let y = evt.clientY - offsetY;
-            el.style.left = x+'px';
-            el.style.top = y+'px';
-            e.preventDefault();
-        }
-        function up(){
-            dragging=false;
-            localStorage.setItem('areaDownloaderPos',JSON.stringify({x:el.offsetLeft,y:el.offsetTop}));
-            document.removeEventListener('mousemove',move);
-            document.removeEventListener('mouseup',up);
-            document.removeEventListener('touchmove',move);
-            document.removeEventListener('touchend',up);
-        }
-        el.addEventListener('mousedown',down);
-        el.addEventListener('touchstart',down);
+  // ---- Coord parsing (robust) ----
+  // Accepts: "X_Y", "X,Y", "X Y", "X;Y" and negative numbers
+  function parseCoords(start, end) {
+    if (!start || !end) return { ok: false, msg: "Both coordinates required (format: X_Y). Example: -11601_6079" };
+
+    const re = /(-?\d+)\s*[_,\s;]\s*(-?\d+)/;
+    const ma = String(start).trim().match(re);
+    const mb = String(end).trim().match(re);
+
+    if (!ma || !mb) {
+      return { ok: false, msg: "Coordinates must be in format X_Y (underscore, comma or space). Example: -11601_6079" };
     }
 
-    makeDraggable(compact);
-    makeDraggable(expanded);
+    const x1 = parseInt(ma[1], 10);
+    const y1 = parseInt(ma[2], 10);
+    const x2 = parseInt(mb[1], 10);
+    const y2 = parseInt(mb[2], 10);
 
-    // Toggle expand/collapse
-    document.getElementById('expandArrow').addEventListener('click',()=>{
-        expanded.style.left = compact.offsetLeft+'px';
-        expanded.style.top = compact.offsetTop+'px';
-        expanded.style.display='flex';
-        compact.style.display='none';
-    });
-    document.getElementById('collapseArrow').addEventListener('click',()=>{
-        compact.style.left = expanded.offsetLeft+'px';
-        compact.style.top = expanded.offsetTop+'px';
-        compact.style.display='flex';
-        expanded.style.display='none';
-    });
-
-    // ---------- LOGIC ----------
-    const downloadBtn = expanded.querySelector("#downloadBtn");
-    const saveBtn = expanded.querySelector("#saveBtn");
-    const previewCanvas = expanded.querySelector("#previewCanvas");
-    const statusEl = expanded.querySelector("#status");
-    const progressFill = expanded.querySelector("#progressFill");
-
-    function parseCoords(start, end) {
-        if (!start || !end) return { ok: false, msg: "Both coordinates required" };
-        const a = start.split("_").map(s => Number(s.trim()));
-        const b = end.split("_").map(s => Number(s.trim()));
-        if (a.length !== 2 || b.length !== 2 || a.some(isNaN) || b.some(isNaN)) return { ok: false, msg: "Coordinates must be X_Y numbers" };
-        const [x1, y1] = a;
-        const [x2, y2] = b;
-        if (x2 < x1 || y2 < y1) return { ok: false, msg: "End coordinate must be >= Start coordinate" };
-        return { ok: true, x1, y1, x2, y2, w: x2 - x1 + 1, h: y2 - y1 + 1 };
+    if ([x1,y1,x2,y2].some(v => Number.isNaN(v))) {
+      return { ok: false, msg: "Coordinates must contain valid integers." };
     }
 
-    async function downloadArea(start, end) {
-        statusEl.textContent = "Fetching canvas data...";
-        downloadBtn.style.pointerEvents = "none";
-        try {
-            const canvasesResp = await fetch(CANVASES_URL);
-            const canvases = await canvasesResp.json();
-            const canvasId = Object.keys(canvases)[0];
-            const canvas = canvases[canvasId];
+    if (x2 < x1 || y2 < y1) {
+      return { ok: false, msg: "End must be >= Start (X2>=X1 and Y2>=Y1)." };
+    }
 
-            const parse = parseCoords(start, end);
-            if (!parse.ok) { statusEl.textContent = parse.msg; return; }
-            const { x1, y1, x2, y2, w: width, h: height } = parse;
+    return { ok: true, x1, y1, x2, y2, w: x2 - x1 + 1, h: y2 - y1 + 1 };
+  }
 
-            statusEl.textContent = `Loading area ${width}×${height}...`;
+  // ---- safe canvas lookup ----
+  function findCanvasKey(canvasesObj, selectedVal) {
+    // try exact match first (string)
+    if (selectedVal in canvasesObj) return selectedVal;
+    // try numeric string
+    const numStr = String(Number(selectedVal));
+    if (numStr in canvasesObj) return numStr;
+    // try convert to number and find equal numeric key
+    const keys = Object.keys(canvasesObj);
+    // if selectedVal looks like index (0,1,2...), map to keys[index]
+    const idx = Number(selectedVal);
+    if (!Number.isNaN(idx) && Number.isInteger(idx) && keys[idx]) return keys[idx];
+    // fallback: first key
+    return keys.length ? keys[0] : null;
+  }
 
-            const offscreen = document.createElement("canvas");
-            offscreen.width = width;
-            offscreen.height = height;
-            const ctx = offscreen.getContext("2d");
-            const imgData = ctx.createImageData(width, height);
+  // ---- Download area ----
+  async function downloadArea(parsedCoords) {
+    statusEl.textContent = "Fetching canvas data...";
+    downloadBtn.disabled = true;
+    saveBtn.style.display = "none";
+    progressBar.style.width = "0%";
+    progressBar.textContent = "0%";
 
-            const size = canvas.size;
-            const canvasoffset = Math.sqrt(size);
-            const offset = -canvasoffset * canvasoffset / 2;
+    try {
+      const canvasesResp = await fetch(CANVASES_URL);
+      if (!canvasesResp.ok) throw new Error("Failed to fetch canvases.json: HTTP " + canvasesResp.status);
+      const canvases = await canvasesResp.json();
 
-            const xc1 = Math.floor((x1 - offset) / 256);
-            const yc1 = Math.floor((y1 - offset) / 256);
-            const xc2 = Math.floor((x2 - offset) / 256);
-            const yc2 = Math.floor((y2 - offset) / 256);
+	  const selectedVal = canvasSelect.value;
+      const canvas = canvases[selectedVal];
 
-            const totalTiles = (xc2 - xc1 + 1) * (yc2 - yc1 + 1);
-            let loadedTiles = 0;
+      const { x1, y1, x2, y2, w, h } = parsedCoords;
+      // safety: avoid insane sizes
+      if (w > 20000 || h > 20000) {
+        statusEl.textContent = `Requested area too large: ${w}×${h}`;
+        return;
+      }
 
-            for (let iy = yc1; iy <= yc2; iy++) {
-                for (let ix = xc1; ix <= xc2; ix++) {
-                    const url = `${PPFUN_URL}/chunks/${canvasId}/${ix}/${iy}.bmp`;
-                    try {
-                        const resp = await fetch(url);
-                        const buf = await resp.arrayBuffer();
-                        if (buf.byteLength !== 65536) {
-                            loadedTiles++;
-                            statusEl.textContent = `Tile ${loadedTiles}/${totalTiles} (invalid)`;
-                            progressFill.style.width = (loadedTiles/totalTiles*100)+"%";
-                            continue;
-                        }
-                        const arr = new Uint8Array(buf);
-                        for (let i = 0; i < arr.length; i++) {
-                            const tx = ix * 256 + (i % 256) + offset;
-                            const ty = iy * 256 + Math.floor(i / 256) + offset;
-                            if (tx >= x1 && tx <= x2 && ty >= y1 && ty <= y2) {
-                                const px = tx - x1;
-                                const py = ty - y1;
-                                const idx = (py * width + px) * 4;
-                                const colorIndex = arr[i] & 0x7F;
-                                const color = canvas.colors[colorIndex] || [0,0,0,0];
-                                imgData.data[idx] = color[0];
-                                imgData.data[idx+1] = color[1];
-                                imgData.data[idx+2] = color[2];
-                                imgData.data[idx+3] = color[3] ?? 255;
-                            }
-                        }
-                        loadedTiles++;
-                        statusEl.textContent = `Loaded ${loadedTiles}/${totalTiles} tiles`;
-                        progressFill.style.width = (loadedTiles/totalTiles*100)+"%";
-                    } catch {
-                        loadedTiles++;
-                        statusEl.textContent = `Tile ${loadedTiles}/${totalTiles} (error)`;
-                        progressFill.style.width = (loadedTiles/totalTiles*100)+"%";
-                    }
+      statusEl.textContent = `Loading area ${w}×${h}...`;
+
+      const offscreen = document.createElement("canvas");
+      offscreen.width = w;
+      offscreen.height = h;
+      const ctx = offscreen.getContext("2d");
+      const imgData = ctx.createImageData(w, h);
+
+      const size = canvas.size;
+      const canvasoffset = Math.sqrt(size);
+      const offset = -canvasoffset * canvasoffset / 2;
+
+      const xc1 = Math.floor((x1 - offset) / 256);
+      const yc1 = Math.floor((y1 - offset) / 256);
+      const xc2 = Math.floor((x2 - offset) / 256);
+      const yc2 = Math.floor((y2 - offset) / 256);
+
+      const totalTiles = (xc2 - xc1 + 1) * (yc2 - yc1 + 1);
+      let loaded = 0;
+
+      for (let iy = yc1; iy <= yc2; iy++) {
+        for (let ix = xc1; ix <= xc2; ix++) {
+          const url = `${PPFUN_URL}/chunks/${canvasKey}/${ix}/${iy}.bmp`;
+          try {
+            const resp = await fetch(url);
+            const buf = await resp.arrayBuffer();
+            if (buf.byteLength === 65536) {
+              const arr = new Uint8Array(buf);
+              for (let i = 0; i < arr.length; i++) {
+                const tx = ix * 256 + (i % 256) + offset;
+                const ty = iy * 256 + Math.floor(i / 256) + offset;
+                if (tx >= x1 && tx <= x2 && ty >= y1 && ty <= y2) {
+                  const px = tx - x1;
+                  const py = ty - y1;
+                  const idx = (py * w + px) * 4;
+                  const color = canvas.colors[arr[i] & 0x7F] || [0, 0, 0, 0];
+                  imgData.data[idx] = color[0];
+                  imgData.data[idx + 1] = color[1];
+                  imgData.data[idx + 2] = color[2];
+                  imgData.data[idx + 3] = color[3] ?? 255;
                 }
+              }
             }
-
-            ctx.putImageData(imgData, 0, 0);
-
-            // preview
-            const pctx = previewCanvas.getContext("2d");
-            previewCanvas.width = Math.min(width, 600);
-            previewCanvas.height = Math.min(height, 300);
-            pctx.imageSmoothingEnabled = false;
-            pctx.drawImage(offscreen, 0, 0, previewCanvas.width, previewCanvas.height);
-
-            saveBtn.style.display = "block";
-            statusEl.textContent = `Done — ${width}×${height}.`;
-
-            saveBtn.onclick = () => {
-                offscreen.toBlob(blob => {
-                    const url = URL.createObjectURL(blob);
-                    try {
-                        GM_download({ url, name: "area.png" });
-                    } catch {
-                        const a = document.createElement('a');
-                        a.href = url;
-                        a.download = "area.png";
-                        a.click();
-                    }
-                }, "image/png");
-            };
-
-        } catch (err) {
-            statusEl.textContent = "Error: " + (err.message || err);
-        } finally {
-            downloadBtn.style.pointerEvents = "auto";
+          } catch (err) {
+            // ignore individual tile errors, but continue
+          } finally {
+            loaded++;
+            const pct = Math.floor((loaded / totalTiles) * 100);
+            progressBar.style.width = pct + "%";
+            progressBar.textContent = pct + "%";
+            statusEl.textContent = `Loading tiles ${loaded}/${totalTiles} (${pct}%)`;
+          }
         }
-    }
+      }
 
-    downloadBtn.addEventListener("click", () => {
-        const start = document.getElementById("coordStart").value.trim();
-        const end = document.getElementById("coordEnd").value.trim();
-        const parsed = parseCoords(start, end);
-        if (!parsed.ok) { statusEl.textContent = parsed.msg; return; }
-        downloadArea(start, end);
-    });
+      ctx.putImageData(imgData, 0, 0);
+
+      // show preview (scale down)
+      const pctx = previewCanvas.getContext("2d");
+      previewCanvas.width = Math.min(w, 300);
+      previewCanvas.height = Math.min(h, 150);
+      pctx.imageSmoothingEnabled = false;
+      pctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height);
+      pctx.drawImage(offscreen, 0, 0, previewCanvas.width, previewCanvas.height);
+
+      saveBtn.style.display = "block";
+      statusEl.textContent = `Done — ${w}×${h}`;
+
+      saveBtn.onclick = () => {
+        offscreen.toBlob((blob) => {
+          const url = URL.createObjectURL(blob);
+          try {
+            if (typeof GM_download === 'function') {
+              GM_download({ url, name: `area_${canvasKey}.png` });
+            } else {
+              const a = document.createElement('a');
+              a.href = url;
+              a.download = `area_${canvasKey}.png`;
+              a.click();
+            }
+          } catch (e) {
+            console.error(e);
+          }
+        }, "image/png");
+      };
+
+    } catch (err) {
+      statusEl.textContent = "Error: " + (err && err.message ? err.message : String(err));
+      console.error(err);
+    } finally {
+      downloadBtn.disabled = false;
+    }
+  }
+
+  // ---- Button handler ----
+  downloadBtn.addEventListener("click", () => {
+    const s = inputStart.value;
+    const e = inputEnd.value;
+    const parsed = parseCoords(s, e);
+    if (!parsed.ok) {
+      statusEl.textContent = parsed.msg;
+      return;
+    }
+    // call with parsed object
+    downloadArea(parsed);
+  });
 
 })();
