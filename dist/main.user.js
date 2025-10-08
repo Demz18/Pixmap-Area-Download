@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Pixmap Area Downloader
+// @name         Pixmap Area Downloader testing
 // @namespace    http://tampermonkey.net/
 // @version      1.4
 // @description  Download an area from Pixmap.fun
@@ -267,6 +267,8 @@
 
 	  const selectedVal = canvasSelect.value;
       const canvas = canvases[selectedVal];
+	  const canvasKey = selectedVal;
+
 
       const { x1, y1, x2, y2, w, h } = parsedCoords;
       // safety: avoid insane sizes
