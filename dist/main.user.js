@@ -1,5 +1,5 @@
 // ==UserScript==
-// @name         Pixmap Area Downloader testing
+// @name         Pixmap Area Downloader
 // @namespace    http://tampermonkey.net/
 // @version      1.4
 // @description  Download an area from Pixmap.fun
