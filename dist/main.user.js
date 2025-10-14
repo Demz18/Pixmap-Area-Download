@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pixmap Area Downloader
 // @namespace    http://tampermonkey.net/
-// @version      1.4.1
+// @version      1.4.2
 // @description  Download an area from Pixmap.fun
 // @author       Demz and Bauti
 // @match        *://pixmap.fun/*
@@ -207,8 +207,6 @@
     }
   })(ui, header);
 
-  // ---- Coord parsing (robust) ----
-  // Accepts: "X_Y", "X,Y", "X Y", "X;Y" and negative numbers
   function parseCoords(start, end) {
     if (!start || !end) return { ok: false, msg: "Both coordinates required (format: X_Y). Example: -11601_6079" };
 
@@ -250,6 +248,25 @@
     if (!Number.isNaN(idx) && Number.isInteger(idx) && keys[idx]) return keys[idx];
     // fallback: first key
     return keys.length ? keys[0] : null;
+  }
+  async function fetchChunkWithRetry(url, maxRetries = 8, delay = 500) {
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const resp = await fetch(url);
+        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        const buf = await resp.arrayBuffer();
+        if (buf.byteLength !== 65536) throw new Error(`Invalid size (${buf.byteLength})`);
+        return buf;
+      } catch (err) {
+        if (attempt < maxRetries) {
+          console.warn(`Chunk retry ${attempt}/${maxRetries} failed for ${url}: ${err.message}`);
+          await new Promise(r => setTimeout(r, delay * attempt)); // backoff
+        } else {
+          console.error(`Chunk failed after ${maxRetries} attempts: ${url}`);
+          throw err;
+        }
+      }
+    }
   }
 
   // ---- Download area ----
