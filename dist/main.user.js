@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pixmap Area Downloader
 // @namespace    http://tampermonkey.net/
-// @version      1.4
+// @version      1.4.1
 // @description  Download an area from Pixmap.fun
 // @author       Demz and Bauti
 // @match        *://pixmap.fun/*
@@ -17,7 +17,7 @@
   'use strict';
 
   const PPFUN_URL = "https://pixmap.fun";
-  const CANVASES_URL = "https://raw.githubusercontent.com/CodeToucher/motherfuckingcanvasjsonfuckupixmapformakingmedothisinsteadofu/refs/heads/main/canvases.json";
+  const CANVASES_URL = "https://raw.githubusercontent.com/Demz18/Pixmap-Area-Download/refs/heads/main/dist/canvases.json";
 
   // ---- Style helper ----
   function addStyles(css) {
