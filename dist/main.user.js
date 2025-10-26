@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Pixmap Area Downloader
 // @namespace    http://tampermonkey.net/
-// @version      1.4.2
+// @version      1.4.3
 // @description  Download an area from Pixmap.fun
 // @author       Demz and Bauti
 // @match        *://pixmap.fun/*
@@ -17,7 +17,7 @@
   'use strict';
 
   const PPFUN_URL = "https://pixmap.fun";
-  const CANVASES_URL = "https://raw.githubusercontent.com/Demz18/Pixmap-Area-Download/refs/heads/main/dist/canvases.json";
+  const CANVASES_URL = "https://demz18.github.io/Pixmap-Area-Download/dist/canvases.json";
 
   // ---- Style helper ----
   function addStyles(css) {
@@ -161,7 +161,6 @@
   `;
   document.body.appendChild(ui);
 
-  // ---- Refs ----
   const header = ui.querySelector("#dragHeader");
   const collapseBtn = ui.querySelector("#collapseBtn");
   const menuContent = ui.querySelector("#menuContent");
@@ -173,6 +172,9 @@
   const previewCanvas = ui.querySelector("#previewCanvas");
   const progressBar = ui.querySelector("#progressBar");
   const statusEl = ui.querySelector("#status");
+
+  menuContent.style.display = "none";
+  collapseBtn.textContent = "➕";
 
   // ---- Collapse ----
   collapseBtn.addEventListener("click", () => {
